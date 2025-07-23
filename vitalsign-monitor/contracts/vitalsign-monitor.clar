@@ -71,3 +71,46 @@
 (define-data-var next-reading-id uint u1)
 (define-data-var next-alert-id uint u1)
 (define-constant contract-owner tx-sender)
+
+(define-public (register-patient
+  (patient-id principal)
+  (age uint)
+  (gender (string-ascii 10))
+  (medical-conditions (string-ascii 200))
+  (emergency-contact principal))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) ERR_NOT_AUTHORIZED)
+    (map-set patient-profiles
+      { patient-id: patient-id }
+      {
+        age: age,
+        gender: gender,
+        medical-conditions: medical-conditions,
+        emergency-contact: emergency-contact,
+        monitoring-start: block-height,
+        is-active: true
+      }
+    )
+    (unwrap-panic (set-default-thresholds patient-id age))
+    (ok true)
+  )
+)
+
+(define-public (authorize-device
+  (device-id (string-ascii 32))
+  (manufacturer (string-ascii 50))
+  (model (string-ascii 50)))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) ERR_NOT_AUTHORIZED)
+    (map-set authorized-devices
+      { device-id: device-id }
+      {
+        manufacturer: manufacturer,
+        model: model,
+        certified-at: block-height,
+        is-active: true
+      }
+    )
+    (ok true)
+  )
+)
