@@ -6,6 +6,7 @@
 (define-constant ERR_INVALID_DEVICE (err u402))
 (define-constant ERR_THRESHOLD_VIOLATION (err u403))
 (define-constant ERR_INVALID_READING (err u404))
+(define-constant ERR_CLAIM_NOT_FOUND (err u405))
 
 (define-map patient-profiles
   { patient-id: principal }
@@ -87,7 +88,7 @@
         gender: gender,
         medical-conditions: medical-conditions,
         emergency-contact: emergency-contact,
-        monitoring-start: block-height,
+        monitoring-start: stacks-block-height,
         is-active: true
       }
     )
@@ -107,7 +108,7 @@
       {
         manufacturer: manufacturer,
         model: model,
-        certified-at: block-height,
+        certified-at: stacks-block-height,
         is-active: true
       }
     )
@@ -135,7 +136,7 @@
       { patient-id: patient-id, reading-id: reading-id }
       {
         device-id: device-id,
-        timestamp: block-height,
+        timestamp: stacks-block-height,
         heart-rate: heart-rate,
         blood-pressure-systolic: bp-systolic,
         blood-pressure-diastolic: bp-diastolic,
@@ -230,7 +231,7 @@
           { patient-id: patient-id, alert-id: alert-id }
           {
             alert-type: "vital-threshold-violation",
-            triggered-at: block-height,
+            triggered-at: stacks-block-height,
             vital-type: "multiple",
             critical-value: heart-rate,
             status: "active",
