@@ -244,3 +244,31 @@
     )
   )
 )
+
+(define-read-only (get-patient-profile (patient-id principal))
+  (map-get? patient-profiles { patient-id: patient-id })
+)
+
+(define-read-only (get-vital-reading (patient-id principal) (reading-id uint))
+  (map-get? vital-readings { patient-id: patient-id, reading-id: reading-id })
+)
+
+(define-read-only (get-vital-thresholds (patient-id principal))
+  (map-get? vital-thresholds { patient-id: patient-id })
+)
+
+(define-read-only (get-device-info (device-id (string-ascii 32)))
+  (map-get? authorized-devices { device-id: device-id })
+)
+
+(define-read-only (get-emergency-alert (patient-id principal) (alert-id uint))
+  (map-get? emergency-alerts { patient-id: patient-id, alert-id: alert-id })
+)
+
+(define-read-only (get-next-reading-id)
+  (var-get next-reading-id)
+)
+
+(define-read-only (get-next-alert-id)
+  (var-get next-alert-id)
+)
