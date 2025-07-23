@@ -114,3 +114,133 @@
     (ok true)
   )
 )
+
+(define-public (submit-vital-reading
+  (patient-id principal)
+  (device-id (string-ascii 32))
+  (heart-rate uint)
+  (bp-systolic uint)
+  (bp-diastolic uint)
+  (temperature uint)
+  (oxygen-saturation uint)
+  (reading-hash (buff 32)))
+  (let ((reading-id (var-get next-reading-id))
+        (device-data (unwrap! (map-get? authorized-devices { device-id: device-id }) ERR_INVALID_DEVICE))
+        (patient-data (unwrap! (map-get? patient-profiles { patient-id: patient-id }) ERR_PATIENT_NOT_FOUND)))
+    (asserts! (get is-active device-data) ERR_INVALID_DEVICE)
+    (asserts! (get is-active patient-data) ERR_PATIENT_NOT_FOUND)
+    (asserts! (and (> heart-rate u0) (< heart-rate u300)) ERR_INVALID_READING)
+    (asserts! (and (> temperature u350) (< temperature u430)) ERR_INVALID_READING)
+    (map-set vital-readings
+      { patient-id: patient-id, reading-id: reading-id }
+      {
+        device-id: device-id,
+        timestamp: block-height,
+        heart-rate: heart-rate,
+        blood-pressure-systolic: bp-systolic,
+        blood-pressure-diastolic: bp-diastolic,
+        temperature: temperature,
+        oxygen-saturation: oxygen-saturation,
+        reading-hash: reading-hash
+      }
+    )
+    (var-set next-reading-id (+ reading-id u1))
+    (unwrap-panic (check-vital-thresholds patient-id heart-rate bp-systolic temperature oxygen-saturation))
+    (ok reading-id)
+  )
+)
+
+(define-public (update-thresholds
+  (patient-id principal)
+  (max-heart-rate uint)
+  (min-heart-rate uint)
+  (max-bp-systolic uint)
+  (min-bp-systolic uint)
+  (max-temperature uint)
+  (min-temperature uint)
+  (min-oxygen-saturation uint))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) ERR_NOT_AUTHORIZED)
+    (map-set vital-thresholds
+      { patient-id: patient-id }
+      {
+        max-heart-rate: max-heart-rate,
+        min-heart-rate: min-heart-rate,
+        max-bp-systolic: max-bp-systolic,
+        min-bp-systolic: min-bp-systolic,
+        max-temperature: max-temperature,
+        min-temperature: min-temperature,
+        min-oxygen-saturation: min-oxygen-saturation
+      }
+    )
+    (ok true)
+  )
+)
+
+(define-public (acknowledge-alert
+  (patient-id principal)
+  (alert-id uint)
+  (response-time uint))
+  (let ((alert-key { patient-id: patient-id, alert-id: alert-id })
+        (alert-data (unwrap! (map-get? emergency-alerts alert-key) ERR_CLAIM_NOT_FOUND)))
+    (asserts! (is-eq tx-sender contract-owner) ERR_NOT_AUTHORIZED)
+    (map-set emergency-alerts
+      alert-key
+      (merge alert-data { status: "acknowledged", response-time: response-time })
+    )
+    (ok true)
+  )
+)
+
+(define-private (set-default-thresholds (patient-id principal) (age uint))
+  (let ((max-hr (if (< age u65) u180 u150))
+        (min-hr u50))
+    (map-set vital-thresholds
+      { patient-id: patient-id }
+      {
+        max-heart-rate: max-hr,
+        min-heart-rate: min-hr,
+        max-bp-systolic: u140,
+        min-bp-systolic: u90,
+        max-temperature: u380,
+        min-temperature: u360,
+        min-oxygen-saturation: u95
+      }
+    )
+    (ok true)
+  )
+)
+
+(define-private (check-vital-thresholds
+  (patient-id principal)
+  (heart-rate uint)
+  (bp-systolic uint)
+  (temperature uint)
+  (oxygen-saturation uint))
+  (let ((thresholds (unwrap! (map-get? vital-thresholds { patient-id: patient-id }) ERR_PATIENT_NOT_FOUND))
+        (alert-id (var-get next-alert-id)))
+    (if (or
+          (> heart-rate (get max-heart-rate thresholds))
+          (< heart-rate (get min-heart-rate thresholds))
+          (> bp-systolic (get max-bp-systolic thresholds))
+          (> temperature (get max-temperature thresholds))
+          (< oxygen-saturation (get min-oxygen-saturation thresholds)))
+      (begin
+        (map-set emergency-alerts
+          { patient-id: patient-id, alert-id: alert-id }
+          {
+            alert-type: "vital-threshold-violation",
+            triggered-at: block-height,
+            vital-type: "multiple",
+            critical-value: heart-rate,
+            status: "active",
+            response-time: u0
+          }
+        )
+        (var-set next-alert-id (+ alert-id u1))
+        (ok alert-id)
+      )
+      (ok u0)
+    )
+  )
+)
